@@ -1,0 +1,10 @@
+As a user, I want to...
+
+1. Connect the app to my Trakt.tv account for access to my own, and my friend's, custom watch lists, so it can determine what movies and TV shows are wanted
+2. Connect the app to my local Radarr and Sonarr apps, so it can determine what movies and TV shows I have collected
+3. Have the app compare a trakt list with my local Radarr and Sonarr collection and create a symlink to the parent folder of the matched item in an output folder, so that the matched item can be synced to an USB drive
+4. Configure multiple source lists for multiple trakt accounts, with specific output folder for each combination, so that the app can work on multiple input/ouput scenarios
+5. Run the app on a schedule, so I don't have to manually run it
+6. Sync symlink folders to a USB drive when attached to the system, so I can transfer the files to another system
+X. Have the app automatically refresh the trakt connection token based on expiry date, so I don't have to monitor and redo access config
+
