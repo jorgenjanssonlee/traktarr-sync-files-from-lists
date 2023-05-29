@@ -1,0 +1,4 @@
+node_modules
+npm-debug.log
+requirements_and_design
+docker build commands.txt
