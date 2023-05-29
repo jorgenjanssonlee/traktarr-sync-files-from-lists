@@ -134,3 +134,6 @@ dist
 
 # docker build instructions
 docker build commands.txt
+
+# pesky mac files
+.DS*
