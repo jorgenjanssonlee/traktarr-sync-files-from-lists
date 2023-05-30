@@ -2,11 +2,11 @@
 PATH=/usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin
 ## Version 1.0
 ## Script to be used with unRAID plugin "unassigned devices" that triggers on plugin/unplug of USB drive
-## Example to update unassigned devices script from unraid cli, where script was initially installed as "MATHIAS64GB"
-## wget --no-check-certificate -O Unraid-copy-to-USB-and-notify.sh --content-disposition https://github.com/jorgenjanssonlee/ TODO
+## Example to install/update unassigned devices script from unraid cli, where script was initially installed as "Traktarr-move-files-to-USB-and-notify.sh"
+## wget --no-check-certificate -O /boot/config/plugins/unassigned.devices/Traktarr-move-files-to-USB-and-notify.sh --content-disposition https://github.com/jorgenjanssonlee/traktarr-sync-files-from-lists/raw/main/Unraid%20script/Traktarr-move-files-to-USB-and-notify.sh
 
 # Set the host path to sync FROM, e.g. the output folder of traktarr
-unraidSourceFolder="/mnt/user/Media/testsource/"
+unraidSourceFolder="/mnt/user/traktarroutputfolder/"
 # Set a folder on the USB drive to sync TO, the folder will be created if it doesn't exist already
 destFolder="from_traktarr"
 
