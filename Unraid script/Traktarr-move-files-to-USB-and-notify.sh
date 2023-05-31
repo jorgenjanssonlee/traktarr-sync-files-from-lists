@@ -42,7 +42,7 @@ case $ACTION in
   # NOTE: rsync --remove-source-files does NOT work on symlinks with the -L flag, it will resolve the symlink and delete the actual source files
   cd "$unraidSourceFolder"
   mkdir tempdir
-  ls | grep -v tempdir | xargs mv -t tempdir
+  ls | grep -v tempdir | xargs -d '\n' mv -t tempdir
   # sync actual files (resolve symlinks) to USB folder
   rsync -rvL ./tempdir/ "$MOUNTPOINT"/"$destFolder" 2>&1 >> $LOGFILE
   # remove tempdir and the symlinks in it
@@ -57,12 +57,12 @@ case $ACTION in
 	logger Completed moving unRAID content to USB -t$PROG_NAME
         echo "Completed: `date`" >> $LOGFILE
 
-  /usr/local/emhttp/webGui/scripts/notify -e "unRAID Server Notice" -s "Files from unRAID" -d "$sourcefiles" -i "normal"
+  /usr/local/emhttp/webGui/scripts/notify -e "unRAID Server Notice" -s "Traktarr copied these files to the USB" -d "$sourcefiles" -i "normal"
 	# --------- End of moving files from unRAID to USB ------------
     fi
     else
         logger Something went wrong -t$PROG_NAME
-        /usr/local/emhttp/webGui/scripts/notify -e "unRAID Server Notice" -s "USB transfer error" -d "$(cat "$LOGFILE")" -i "normal"
+        /usr/local/emhttp/webGui/scripts/notify -e "unRAID Server Notice" -s "Traktarr: USB transfer error" -d "$(cat "$LOGFILE")" -i "normal"
     fi
   ;;
 
