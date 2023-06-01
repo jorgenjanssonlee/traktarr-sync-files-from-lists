@@ -64,7 +64,7 @@ if (process.env.traktFriendID
 // Start main proccesing flow
 //*************
 
-console.log('Getting movie lists');
+console.log('Traktarr getting movie lists');
 const main = Promise.all([
 	getTraktMovies(),
 	getRadarrMovies()
@@ -73,16 +73,16 @@ const main = Promise.all([
 	let responseStatus = response.map(a => "Status: " + a.status + "  URL: " + a.config.url);
 	console.log(JSON.stringify(responseStatus, null, 2));
 	// compare movie lists
-	return compareResults(response);
+	return compareMovies(response);
 }).then(function (movies) {
-	return createSymlink(movies); // create symlinks in output folder
+	return createFolderSymlink(movies); // create symlinks in output folder
 }).then(function (result) {
 	return sendSlackNotification(result); // send optional slack notification if webhook is provided configured
 }).finally(function () {
-	console.log("Processing completed " + new Date(new Date() + 3600 * 1000 * 10).toISOString());
+	console.log("Traktarr, movie processing completed " + new Date(new Date() + 3600 * 1000 * 10).toISOString());
 }).catch(function (error) {
 	// handle error
-	console.log('Error in main processing flow:');
+	console.log('Traktarr, Error in main processing flow:');
 	console.log(error);
 });
 
@@ -97,6 +97,14 @@ function getTraktMovies() {
 	return response;
 }
 
+function getTraktShows() {
+	var response = axios.get('https://api.trakt.tv/users/' + process.env.traktFriendID + '/watchlist/shows', {
+		headers: { 'trakt-api-version': '2', 'trakt-api-key': process.env.traktClientID }
+	})
+	return response;
+}
+
+
 function getRadarrMovies() {
 	var response = axios.get(process.env.radarrIP + ':' + process.env.radarrPort + '/api/v3/movie', {
 		headers: { 'X-API-Key': process.env.radarrApiKey }
@@ -104,25 +112,25 @@ function getRadarrMovies() {
 	return response;
 }
 
-function compareResults(movieLists) {
+function compareMovies(movieLists) {
 	return new Promise((resolve, reject) => {
-		console.log("Starting compareResults");
+		console.log("Traktarr, starting compareMovies");
 		let movieMatches = []; // array of imdbID and file path for movie matches between trakt and radarr that has not been previously processed
 		if (movieLists === undefined) {
-			reject(new Error('Error! Movies to compare are missing'));
+			reject(new Error('Traktarr error! Movies to compare are missing'));
 		} else {
 			//get array of previously processed movies to avoid double-processing
 			if (!fs.existsSync(movieHistoryFile)) {
 				try {
-					fs.appendFileSync(movieHistoryFile, "These movies have already been processed and will be ignored" + "\n");
+					fs.appendFileSync(movieHistoryFile, "Traktarr, these movies have already been processed and will be ignored" + "\n");
 				} catch (err) {
-					console.log(`Error creating movieHistoryFile: ${err}`);
+					console.log(`Traktar error creating movieHistoryFile: ${err}`);
 					reject(err);
 				}
 			}
 			if (fs.existsSync(movieHistoryFile)) {
 				try {
-					console.log("movieHistoryFile exists");
+					console.log("Traktarr, movieHistoryFile exists");
 					let data = fs.readFileSync(movieHistoryFile);
 					let movieHistory = data.toString().split("\n");
 					movieHistory.splice(-1, 1);
@@ -146,10 +154,10 @@ function compareResults(movieLists) {
 							}
 						}
 					};
-					console.log("Matching movies " + JSON.stringify(movieMatches, null, 2));
+					console.log("Traktarr, matching movies " + JSON.stringify(movieMatches, null, 2));
 					resolve(movieMatches);
 				} catch (err) {
-					console.log(`Error comparing results: ${err}`);
+					console.log(`Traktarr error comparing movies: ${err}`);
 					reject(err);
 				}
 			}
@@ -157,7 +165,7 @@ function compareResults(movieLists) {
 	  });
 }
 	
-function createSymlink(movies) {
+function createFolderSymlink(movies) {
 	return new Promise((resolve, reject) => {
 	// create symlink in output folder with volume mapping substitution
 	// then add imdb of movie to history log to prevent re-processing
@@ -173,12 +181,12 @@ function createSymlink(movies) {
 			
 			// Create symlink
 			fs.symlinkSync(remappedSourceFolder, destFolder, 'dir');
-			console.log("symlink created in: " + destFolder);
+			console.log("Traktarr folder symlink created in: " + destFolder);
 			console.log("with target: " + remappedSourceFolder);
 			completedSymlinks += destFolder + "\n";
 			fs.appendFileSync(movieHistoryFile, movies[i].imdbId + "\n"); // log processed movies to file
 		} catch (err) {
-			console.log(`Error creating SymLinks: ${err}`);
+			console.log(`Traktarr error creating folder symLinks: ${err}`);
 			reject(err);
 		}
 	}
@@ -191,13 +199,13 @@ function sendSlackNotification(completedSymlinks) {
 	if (process.env.slackWebhookUrl) {
 		let notificationMessage = "";
 		if (completedSymlinks == "") {
-			notificationMessage = "Traktarr complete, no movies to process";
+			notificationMessage = "Traktarr complete, nothing to process";
 		} else {
 			notificationMessage = "Traktarr complete. Symlinks created: \n" + completedSymlinks;
 		};
 		slack.send(notificationMessage)
 			.then(() => {
-				console.log('Sent Slack notification');
+				console.log('Traktarr sent Slack notification');
 				resolve();
 			}).catch((err) => {
 				console.error(`Slack send error: ${err}`);
