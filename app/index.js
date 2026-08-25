@@ -21,11 +21,12 @@ Slack Webhook (optional): https://api.slack.com/messaging/webhooks
 	-e sonarrApiKey="<sonarr API Key>" \
 	-e sonarrContainerPath="<Container side of Media storage path from sonarr container>" \
 	-e sonarrHostPath="<Host side of Media storage path from sonarr container>" \
-	-e slackWebhookUrl="https://hooks.slack.com/services/RANDOMCHARS" \
+	-e slackWebhookUrl="<https://hooks.slack.com/services/RANDOMCHARS>" \
 	jorgenjanssonlee/traktarr
 */
 
 const axios = require('axios');
+const { kMaxLength } = require('buffer');
 const { log } = require('console');
 const fs = require('fs');
 const { resolve } = require('path');
@@ -42,40 +43,64 @@ if (NODE_ENV == "Dev") {
 	outputFolder = process.env.outputFolder;
 };
 
-// Hardcode history tracking file into app config folder
-const traktarrHistoryFile = configFolder + "/traktarrHistory.txt";
+var list = "";
+const traktLists = process.env.traktLists.split(',');
+// console.log("trakLists as array: " + JSON.stringify(traktLists));
+// var list = traktLists[0]; // TODO iterate over all lists
 
 // Check that all mandatory docker/dev environment variables are configured
 const configResults = checkConfig();
 
+// Hardcode history tracking file into app config folder
+const traktarrHistoryFile = configFolder + "/traktarrHistory.txt";
+
 // Set up calls only for services that are completely configured (enabled)
-const promises = [];
+var promises = [];
 
 if(configResults["radarrConfig"] == "Complete") {
-	const traktMoviesPromise = getTraktMovies().then(res => ({ res: res, promise: 'traktMovies' }));
-	promises.push(traktMoviesPromise);
 	const radarrMoviesPromise = getRadarrMovies().then(res => ({ res: res, promise: 'radarrMovies' }));
 	promises.push(radarrMoviesPromise);
- };
+};
 
- if(configResults["sonarrConfig"] == "Complete") {
-	const traktShowsPromise = getTraktShows().then(res => ({ res: res, promise: 'traktShows' }));
-	promises.push(traktShowsPromise);
+if(configResults["sonarrConfig"] == "Complete") {
 	const sonarrShowsPromise = getSonarrShows().then(res => ({ res: res, promise: 'sonarrShows' }));
 	promises.push(sonarrShowsPromise);
- };
+};
 
+for (x in traktLists) {
+	list = traktLists[x];
+
+	if(configResults["radarrConfig"] == "Complete") {
+		const traktMoviesPromise = getTraktMovies().then(res => ({ res: res, promise: 'traktMovies' }));
+		promises.push(traktMoviesPromise);
+		// const radarrMoviesPromise = getRadarrMovies().then(res => ({ res: res, promise: 'radarrMovies' }));
+		// promises.push(radarrMoviesPromise);
+	};
+
+	if(configResults["sonarrConfig"] == "Complete") {
+		const traktShowsPromise = getTraktShows().then(res => ({ res: res, promise: 'traktShows' }));
+		promises.push(traktShowsPromise);
+		// const sonarrShowsPromise = getSonarrShows().then(res => ({ res: res, promise: 'sonarrShows' }));
+		// promises.push(sonarrShowsPromise);
+	};
+};
 
 //*************
 // Start main proccesing flow
 //*************
 
+
 console.log('Traktarr starting main flow ' + new Date(new Date() + 3600 * 1000 * 10).toISOString());
 const main = Promise.all(promises
 ).then(function (response) {
 	// log succesful API results
-	let responseStatus = response.map(a => a.promise + " status: " + a.res.status + ", URL: " + a.res.config.url);
-	console.log(JSON.stringify(responseStatus, null, 2));
+	try {
+		let responseStatus = response.map(a => a.promise + " status: " + a.res.status + ", items: " + a.res.data.length + ", URL: " + a.res.config.url);
+		console.log(JSON.stringify(responseStatus, null, 2));
+	}
+	catch (err) {
+		console.log(err);
+	}
 	// compare all lists
 	return compareLists(response);
 }).then(function (matches) {
@@ -86,8 +111,7 @@ const main = Promise.all(promises
 	console.log("Traktarr processing completed " + new Date(new Date() + 3600 * 1000 * 10).toISOString());
 }).catch(function (error) {
 	// handle error
-	console.log('Traktarr, Error in main processing flow:');
-	console.log(error);
+	console.log('Traktarr, Error in main processing flow:' + error);
 });
 
 
@@ -102,6 +126,7 @@ function checkConfig() {
 	// check required trakt and app config
 	if (process.env.traktFriendID
 		&& process.env.traktClientID
+		&& process.env.traktLists
 		&& fs.existsSync(configFolder)
 		&& fs.existsSync(outputFolder)
 	) {
@@ -147,15 +172,15 @@ function checkConfig() {
 
 
 function getTraktMovies() {
-	var response = axios.get('https://api.trakt.tv/users/' + process.env.traktFriendID + '/watchlist/movies', {
-		headers: { 'trakt-api-version': '2', 'trakt-api-key': process.env.traktClientID }
+	var response = axios.get('https://api.trakt.tv/users/' + process.env.traktFriendID + '/lists/' + list + '/items/movies', {
+		headers: { 'trakt-api-version': '2', 'trakt-api-key': process.env.traktClientID, 'Authorization': `Bearer ${process.env.traktAccessToken}` }
 	})
 	return response;
 }
 
 function getTraktShows() {
-	var response = axios.get('https://api.trakt.tv/users/' + process.env.traktFriendID + '/watchlist/shows', {
-		headers: { 'trakt-api-version': '2', 'trakt-api-key': process.env.traktClientID }
+	var response = axios.get('https://api.trakt.tv/users/' + process.env.traktFriendID + '/lists/' + list + '/items/shows', {
+		headers: { 'trakt-api-version': '2', 'trakt-api-key': process.env.traktClientID, 'Authorization': `Bearer ${process.env.traktAccessToken}` }
 	})
 	return response;
 }
@@ -186,7 +211,7 @@ function compareLists(lists) {
 			//get array of previously processed movies to avoid double-processing
 			if (!fs.existsSync(traktarrHistoryFile)) {
 				try {
-					fs.appendFileSync(traktarrHistoryFile, "Traktarr, these movies have already been processed and will be ignored" + "\n");
+					fs.appendFileSync(traktarrHistoryFile, "Traktarr, these items have already been processed and will be ignored" + "\n");
 				} catch (err) {
 					console.log(`Traktar error creating traktarrHistoryFile: ${err}`);
 					reject(err);
@@ -207,7 +232,7 @@ function compareLists(lists) {
 					for (let i = 0; i < lists.length; i++) {
 						switch (lists[i].promise) {
 							case "traktMovies":
-								traktMovies = lists[i].res.data;
+								traktMovies.push(...lists[i].res.data);
 								// console.log("traktMovies: " + JSON.stringify(traktMovies));
 								break;
 							case "radarrMovies":
@@ -215,7 +240,7 @@ function compareLists(lists) {
 								// console.log("radarrMovies: " + JSON.stringify(radarrMovies));
 								break;
 							case "traktShows":
-								traktShows = lists[i].res.data;
+								traktShows.push(...lists[i].res.data);
 								// console.log("traktShows: " + JSON.stringify(traktShows));
 								break;
 							case "sonarrShows":
